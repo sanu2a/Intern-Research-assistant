@@ -32,6 +32,7 @@ Le répertoire "Data" contient les données utilisées et les données généré
 #### Documentation
 
 - [Data/mars](Data/mars) : Ce répertoire contient l'ensemble des données pour chaque patient extraites lors de la polysomnographie (Ces derniers sont supprimées du repertoire car il sont tres volumineux). Un ensemble de fichiers a été ajouté par la suite dans chaque dossier (les données relatives à chaque patient indépendamment, y compris les désaturations, les hyperventilations, le signal de saturation, les annotations, etc.), ainsi que les données relatives à l'ensemble des patients, comme les niveaux de base. Un fichier CSV contenant la totalité des événements et leurs types, ainsi que leurs indicateurs, est également inclus, tout comme les fichiers utilisés par le logiciel spacem3.
+- Voici un lien dropbox vers les fihciers necessaires, il faut l'extraire dans Data/mars : https://www.dropbox.com/scl/fi/5yzzzuuovw8x2fwyedskq/mars.zip?rlkey=m3y5b7e3n4vt8214k04naqi6z&dl=0.
 
 
 ### Rapport

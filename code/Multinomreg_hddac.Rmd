@@ -1,0 +1,310 @@
+---
+title: "intern"
+output:
+  html_document: default
+  pdf_document: default
+date: "2023-07-03"
+---
+
+
+```{r,echo=FALSE}
+library("HDclassif")
+library("corrplot")
+library("nnet")
+library("gtools") 
+```
+
+```{r,echo=FALSE}
+data <- read.csv("/Users/sanaailla/Desktop/Intern/Data/mars/final_desats.csv", header = TRUE)
+desaturations <- data[,-c(1,14)]
+types <- data[,14] + 1
+head(desaturations)
+summary(desaturations)
+```
+
+```{r,echo=FALSE}
+baseline <-  read.csv("/Users/sanaailla/Desktop/Intern/Data/mars/baselines.csv")
+baselines <- merge(baseline, data["patient"], by = "patient")
+```
+
+```{r}
+# Distance entre le min et 100
+desaturations$DD100 = 100 - desaturations$MIN_desat
+# Distance entre le min et max
+desaturations$DDmax = desaturations$MAX_desat - desaturations$MIN_desat
+# Distance entre le min et niveau de base
+desaturations$DDbase = baselines$baseline - desaturations$MIN_desat
+# Rapport  entre le temps de desaturation et saturation
+desaturations$TimeRat = desaturations$DUREE_desat/desaturations$DUREE_resat
+# Rapport  entre la pente de desaturation et saturation
+desaturations$PenteRat = abs(desaturations$PENTE_desat/desaturations$PENTE_resat)
+desaturations$patient <- as.numeric(as.factor(data[, 1]))
+```
+
+
+```{r,echo=FALSE}
+colnames(desaturations)
+write.csv(desaturations, file = "statistiques.csv", row.names = FALSE)
+```
+
+```{r}
+pca <- prcomp(desaturations,scale = TRUE)
+pc1 <- pca$x[, 1]
+pc2 <- pca$x[, 2]
+plot(pc1, pc2, pch = 16, col = types, xlab = "PC1", ylab = "PC2",
+     main = "2D PCA graph")
+legend("topright", legend = c("Apnée centrale","Apnée Obstructive","Hypopnée Centrale","Hypopnée Obstructive"), col = c(1,2,3,4),pch = 16, title = "Evenement")
+```
+
+
+```{r,echo=FALSE}
+afficher_boxp <- function(desaturations,types) {
+  col_names <- names(desaturations)
+  for (col in col_names) {
+    boxplot(desaturations[[col]] ~ types, data = scale(desaturations), main = col, ylab = "valeurs",xlab = "evenements")
+  }
+}
+afficher_boxp(desaturations,types)
+```
+
+
+#### Régression logistique multinomiale
+
+```{r,echo=FALSE}
+## L'ensemble des données
+donnees <- as.data.frame(desaturations[types %in% c(1,2,3,4),])
+cls <- as.factor(types[types %in% c(1,2,3,4)])
+model <- multinom(cls ~ ., data = donnees)
+modsum <- summary(model)
+## Selection des variables 
+model2 <- step(model,trace = 0)
+modsum2 = summary(model2)
+## Model slectioné
+modsum2
+## Model sans variables
+model0 <-multinom(cls ~ 1, data = donnees)
+# comparaison all vars vs sans var
+anova(model0, model,test = "Chisq")
+# comparaiosn all vars vs vars selectionées
+anova(model, model2,test = "Chisq")
+## Les variables selectionées
+selected_vars <- model2$coefnames[-1]
+df <- donnees[,selected_vars]
+n <- nrow(df)
+## Evaluer la qualité du modele choisi
+ix <- sample(n,as.integer(0.7*n))
+model <- multinom(cls[ix] ~ . , data = df[ix,])
+y_train <- predict(model, newdata = df[ix,])
+y_test <- predict(model, newdata = df[-ix,])
+train_rate <- mean(y_train == cls[ix])
+test_rate <- mean(y_test == cls[-ix])
+cat("Training Accuracy:", train_rate, "\n")
+cat("Test Accuracy:", test_rate, "\n")
+train_table <- table(y_train, cls[ix])
+# train_table
+test_table <- table(y_test, cls[-ix])
+# test_table
+```
+```{r}
+train_table
+```
+
+```{r}
+test_table
+```
+ 
+```{r,echo=FALSE}
+### Le type 1,2 et 3 
+## la meme approche d'avant
+donnees <- as.data.frame(desaturations[types %in% c(1,2,3),])
+cls <- as.factor(types[types %in% c(1,2,3)])
+model <- multinom(cls ~ ., data = donnees)
+modsum <- summary(model)
+model2 <- step(model,trace = 0)
+modsum2 = summary(model2)
+modsum2
+model0 <-multinom(cls ~ 1, data = donnees)
+anova(model0, model,test = "Chisq")
+anova(model, model2,test = "Chisq")
+selected_vars <- model2$coefnames[-1]
+df <- donnees[,selected_vars]
+n <- nrow(df)
+ix <- sample(n,as.integer(0.7*n))
+model <- multinom(cls[ix] ~ . , data = df[ix,])
+y_train <- predict(model, newdata = df[ix,])
+y_test <- predict(model, newdata = df[-ix,])
+train_rate <- mean(y_train == cls[ix])
+test_rate <- mean(y_test == cls[-ix])
+cat("Training Accuracy:", train_rate, "\n")
+cat("Test Accuracy:", test_rate, "\n")
+train_table <- table(y_train, cls[ix])
+# train_table
+test_table <- table(y_test, cls[-ix])
+# test_table
+```
+```{r}
+train_table
+```
+```{r}
+test_table
+```
+
+
+```{r,echo=FALSE}
+## Juste les apnées
+## la meme aprroche d'avant
+donnees <- as.data.frame(desaturations[types %in% c(1,2),])
+cls <- as.factor(types[types %in% c(1,2)])
+model <- multinom(cls ~ ., data = donnees)
+modsum <- summary(model)
+model2 <- step(model,trace = 0)
+modsum2 = summary(model2)
+modsum2
+model0 <-multinom(cls ~ 1, data = donnees)
+anova(model0, model,test = "Chisq")
+anova(model, model2,test = "Chisq")
+selected_vars <- model2$coefnames[-1]
+df <- donnees[,selected_vars]
+n <- nrow(df)
+ix <- sample(n,as.integer(0.7*n))
+model <- multinom(cls[ix] ~ . , data = df[ix,])
+y_train <- predict(model, newdata = df[ix,])
+y_test <- predict(model, newdata = df[-ix,])
+train_rate <- mean(y_train == cls[ix])
+test_rate <- mean(y_test == cls[-ix])
+cat("Training Accuracy:", train_rate, "\n")
+cat("Test Accuracy:", test_rate, "\n")
+train_table <- table(y_train, cls[ix])
+# train_table
+test_table <- table(y_test, cls[-ix])
+# test_table
+```
+```{r}
+train_table
+```
+
+```{r}
+test_table
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#####  HDclassif : HDDA et HDDC 
+
+HDDA et HDDC sont deux methodes de classification et clustering,ils sont basée sur une nouvelle paramétrisation du modèle de mélange gaussien qui combine l'idée de réduction de dimension et de contraintes de modèle sur les matrices de covariance.
+Dans les deux contextes, une approche courante consiste à utiliser le modèle de mélange gaussien qui repose sur l'hypothèse que chaque classe peut être représentée par une densité gaussienne.
+Ce modèle suppose que les observations $\{x_1, ..., x_{1325}\}$ sont des réalisations indépendantes d'un vecteur aléatoire $(X \in \mathbb{R}^6)$ avec une densité définie comme suit :
+
+$$ f(x, \theta) = \sum_{k=1}^{K} \pi_k \phi(x; \mu_k, \Sigma_k)$$
+
+où $\pi_k$ est la proportion de mélange de la k-ème composante et $\phi$ est la densité gaussienne paramétrée par la moyenne $\mu_k$ et la matrice de covariance $\Sigma_k$ et $K$ le nombre de classes (clusters).
+
+**Pour chaque classe k :**
+- Proportion : $\pi_k$, représentant la proportion de la classe k.
+- Vecteur moyen : $\mu_k$, représentant le vecteur moyen de la classe k.
+- Nombre de dimensions intrinsèques : $d_k$, représentant le nombre de dimensions intrinsèques de la classe k.
+(Le nombre de variables qui sont réellement pertinentes pour expliquer cette classe )
+- Valeurs propres : $a_{kj}$, avec $j \in \{1, \ldots, d_k\}$, représentant les valeurs propres de $\Sigma_k$.
+- Bruit de la classe : $b_k$, représentant le bruit de la classe.
+- $\tilde{Q}_k$ : les $d_k$ premiers vecteurs propres de $\Sigma_k$.
+
+Le modele gaussian [akjbkQkdk]:
+
+Le modèle général peut être régularisé :
+- Au sein de la classe :
+    - $ak_1 = \ldots = ak_{dk} = ak$\
+- Entre les classes :\
+    - $d_1 = \ldots = d_K = d$\
+    - $Q_1 = \ldots = Q_K = Q$\
+    - $b_1 = \ldots = b_K = b$\
+    - $a_{11} = \ldots = a_{K1} = a_1$\
+ 
+En gardant seulement les apnées centrales et obstructives 
+
+```{r,echo= FALSE}
+donnees <- desaturations
+cls <- as.factor(types)
+# for (model in models){
+  hdda_model <- hdda(donnees, cls)
+  hdda_pred <- predict(hdda_model, data = donnees, model = model)
+  hdda_accuracy <- sum(hdda_pred$class == cls) / length(cls)
+  cat("Accuracy of HDDA for all evs:", hdda_accuracy,fill = TRUE)
+  table(hdda_pred$class,cls)
+# }
+donnees <- desaturations[types %in% c(1,2,3),]
+cls <- as.factor(types[types %in% c(1,2,3)])
+  hdda_model <- hdda(donnees, cls)
+  hdda_pred <- predict(hdda_model, data = donnees, model = model)
+  hdda_accuracy <- sum(hdda_pred$class == cls) / length(cls)
+  cat("Accuracy of HDDA for centrales and obstructives apneas:", hdda_accuracy,fill = TRUE)
+  table(hdda_pred$class,cls)
+```
+
+##### HDDC
+
+```{r,echo = FALSE}
+donnees <- desaturations
+cls <- types
+hddc_model <- hddc(donnees,K = 4)
+hddc_pred <- predict(hddc_model, data = donnees)
+hddc_accuracy <- sum(hddc_pred$class == cls) / length(cls)
+confusion_matrix = table(hddc_pred$class, cls)
+permutations <- permutations(4, 4, 1:4)
+best_combination <- NULL
+best_clustering_rate <- 0
+for (i in 1:nrow(permutations)) {
+  current_permutation <- permutations[i, ]
+  reorganized_confusion_matrix <- confusion_matrix[current_permutation,]
+  clustering_rate <- sum(diag(reorganized_confusion_matrix)) / sum(reorganized_confusion_matrix)
+  if (clustering_rate > best_clustering_rate) {
+    best_combination <- current_permutation
+    best_clustering_rate <- clustering_rate
+    best_table <- reorganized_confusion_matrix
+  }
+}
+cat("Accuracy of HDDC for 4 events :" , best_clustering_rate, "\n")
+best_table
+```
+
+En gardant seulement les apnées centrales et obstructives 
+
+```{r,echo = FALSE}
+donnees <- desaturations[types %in% c(1,2),]
+cls <- types[types %in% c(1,2)] 
+n <- nrow(donnees)
+prms <- hddc(donnees,K = 2)
+hddc_pred <- predict(prms, donnees)
+library(gtools)
+clustering_rate <- sum(hddc_pred$class == cls) / length(cls)
+confusion_matrix = table(hddc_pred$class, cls)
+permutations <- permutations(2, 2, 1:2)
+best_combination <- NULL
+best_clustering_rate <- 0
+for (i in 1:nrow(permutations)) {
+  current_permutation <- permutations[i, ]
+  reorganized_confusion_matrix <- confusion_matrix[current_permutation,]
+  clustering_rate <- sum(diag(reorganized_confusion_matrix)) / sum(reorganized_confusion_matrix)
+  if (clustering_rate > best_clustering_rate) {
+    best_combination <- current_permutation
+    best_clustering_rate <- clustering_rate
+    best_table <- reorganized_confusion_matrix
+  }
+}
+cat("Accuracy of HDDC  for centrales and obstructives apneas :" , best_clustering_rate, "\n")
+best_table
+```
+
+
+
+
